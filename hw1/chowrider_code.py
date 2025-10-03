@@ -87,6 +87,8 @@ def depth_first_search(time_map, start, end):
     child_parent_map = {}
     v_set = set()
 
+    # start recursive search from a given local start node
+    # return True iff found goal in local_start's subtree
     def dfs_local(local_start):
         if not local_start:
             return False
@@ -137,8 +139,38 @@ def best_first_search(dis_map, time_map, start, end):
         path (list): The final path found by the search algorithm
     """
 
+    # heuristic
+    def H(n):
+        return dis_map[n][end]
+
     visited = []
     path = []
+
+    v_set = set()
+    child_parent_map = {}
+
+    node = start
+    while node != end:
+        v_set.add(node)
+        visited.append(node)
+        # only a single path is traversed, can directly append
+        path.append(node) 
+
+        children = expand(node, time_map)
+        children.reverse()
+        best_child = None
+        for child in children:
+            if (time_map[node][child]) and (child not in v_set):
+                visited.append(child)
+                # H(end) = 0 < H(n) for any other n
+                if (not best_child) or (H(child) < H(best_child)):
+                    best_child = child
+
+        node = best_child 
+
+    # append goal
+    visited.append(node)
+    path.append(node)
 
     return visited, path
 
