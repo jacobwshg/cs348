@@ -156,33 +156,39 @@ def best_first_search(dis_map, time_map, start, end):
     visited = []
     path = []
 
-    v_set = set()
-    child_parent_map = {}
+    # store visited status and predecessor at once
+    vis_pred_map = { start: None }
 
-    node = start
-    while node and (node != end):
-        v_set.add(node)
+    nid_cnt = itertools.count()
+
+    NodeData = NTup("NodeData", ["G", "nodeid", "node"])
+
+    pq = PQueue()
+    pq.push( NodeData(node=start, nodeid=next(nid_cnt), G=H(start)) )
+
+    while pq:
+        G, _, node = pq.pop()
+        ##print(f"GBFS node: {node}")
         visited.append(node)
-        # only a single path is traversed, can directly append
-        path.append(node) 
 
-        children = expand(node, time_map)
-        children.reverse()
-        best_child = None
-        for child in children:
-            if (time_map[node][child]) and (child not in v_set):
-                visited.append(child)
-                # H(end) = 0 < H(n) for any other n
-                if (not best_child) or (H(child) < H(best_child)):
-                    best_child = child
+        if node == end:
+            while node:
+                path.append(node)
+                node = vis_pred_map.get(node)
+            path.reverse()
+            return visited, path
 
-        node = best_child 
+        succs = expand(node, time_map)
+        if not succs:
+            continue
+        succs.reverse()
 
-    # append goal
-    visited.append(node)
-    path.append(node)
-
-    return visited, path
+        for succ in succs:
+            old_pred = vis_pred_map.get(succ)
+            if (succ not in vis_pred_map) :
+                vis_pred_map[succ] = node
+                pq.push( NodeData(G=H(succ), nodeid=next(nid_cnt), node=succ) )
+    return [], []
 
 # TO DO: Implement A* Search.
 def a_star_search(dis_map, time_map, start, end):
