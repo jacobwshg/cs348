@@ -5,9 +5,9 @@ import itertools
 from collections import deque as DQ, namedtuple as NTup
 
 class PQueue:
-    def __init__(self, data=[]):
-        heapq.heapify(data)
-        self.data = data
+    def __init__(self, data=None):
+        self.data = data if data else []
+        heapq.heapify(self.data)
 
     def empty(self):
         return (self.data == [])
@@ -42,7 +42,6 @@ def breadth_first_search(time_map, start, end):
         path (list): The final path found by the search algorithm
     """
 
-
     visited = []
     path = []
 
@@ -50,24 +49,26 @@ def breadth_first_search(time_map, start, end):
         return [start], [start]
 
     queue = DQ([start])
-    visited_parent_map = {start: None}
+    # record visited status and predecessor at once
+    vis_pred_map = { start: None }
 
     while queue:
         node = queue.popleft()
-        ##print(f"BFS node: {node}")
         visited.append(node)
         if node == end:
-            while node is not None:
+            while node:
                 path.append(node)
-                node = visited_parent_map.get(node)
+                node = vis_pred_map.get(node)
             path.reverse()
             return visited, path
 
-        for child in expand(node, time_map):
-            ##print(f"BFS child: {child}")
-            if child not in visited_parent_map:
-                visited_parent_map[child] = node
-                queue.append(child)
+        succs = expand(node, time_map)
+        if not succs:
+            continue
+        for succ in succs:
+            if succ not in vis_pred_map:
+                vis_pred_map[succ] = node
+                queue.append(succ)
 
     return [], []
 
@@ -91,8 +92,7 @@ def depth_first_search(time_map, start, end):
     visited = []
     path = []
 
-    child_parent_map = {}
-    v_set = set()
+    vis_pred_map = { start: None }
 
     # start recursive search from a given local start node
     # return True iff found goal in local_start's subtree
@@ -101,30 +101,33 @@ def depth_first_search(time_map, start, end):
             return False
 
         visited.append(local_start)
-        v_set.add(local_start)
 
         if local_start == end:
             return True
         else:
-            children = expand(local_start, time_map)
-            children.reverse()
-            if not children:
+            succs = expand(local_start, time_map)
+            if not succs:
                 return False
-            for child in children:
-                if child not in v_set and time_map[local_start][child]:
-                    child_parent_map.setdefault(child, local_start)
-                    if dfs_local(child):
+            # simulate stack
+            succs.reverse()
+            for succ in succs:
+                if succ not in vis_pred_map:
+                    # proceed to unvisited successor
+                    vis_pred_map[succ] = local_start
+                    if dfs_local(succ):
                         return True
             return False
 
     if (dfs_local(start)):
-        parent = end
-        while parent:
-            path.append(parent)
-            parent = child_parent_map.get(parent)
+        # path exists
+        node = end
+        while node:
+            path.append(node)
+            node = vis_pred_map.get(node)
         path.reverse()
+        return visited, path
 
-    return visited, path
+    return [], []
 
 # TO DO: Implement Greedy Best-first Search.
 def best_first_search(dis_map, time_map, start, end):
@@ -203,53 +206,55 @@ def a_star_search(dis_map, time_map, start, end):
     visited = []
     path = []
 
-    v_set = set()
-    child_parent_map = {}
+    vis_pred_map = { start: None }
+    G_map = { start: 0 }
 
     nid_cnt = itertools.count()
 
-    # val: F(n) of node n
-    # cost: G(n) of node n; tiebreaker
     # nodeid: increasing; secondary tiebreaker
-    NodeData = NTup("NodeData", ["val", "cost", "nodeid", "node"])
+    NodeData = NTup("NodeData", ["F", "G", "nodeid", "node"])
 
     # heuristic
     def H(n):
         return dis_map[n][end]
 
     pq = PQueue()
-    pq.push(NodeData(val=H(start), cost=0, nodeid=next(nid_cnt), node=start))
+    pq.push(NodeData(F=H(start), G=0, nodeid=next(nid_cnt), node=start))
+
     while not pq.empty():
-        val, cost, _, node = pq.pop()
-        print(f"A* node {node}")
+        F, G, _, node = pq.pop()
         visited.append(node)
-        v_set.add(node)
 
         if node == end:
-            break
+            while node:
+                path.append(node)
+                if node == start:
+                    break;
+                node = vis_pred_map.get(node)
+            path.reverse()
+            return visited, path
 
-        children = expand(node, time_map)
-        if not children:
+        G_old = G_map.get(node)
+        if (G_old) and G > G_old:
             continue
-        #children.reverse()
 
-        for child in children:
-            edge_cost = time_map[node][child] 
-            if (edge_cost and (child not in v_set)):
-                child_cost = cost + edge_cost
-                child_parent_map.setdefault(child, node)
+        succs = expand(node, time_map)
+        if not succs:
+            continue
+        for succ in succs:
+            G_edge = time_map[node][succ]
+            G_succ = G + G_edge
 
-                pq.push(NodeData(val=child_cost + H(child),\
-                                 cost=child_cost,\
+            G_succ_old = G_map.get(succ)
+            if (not G_succ_old) or G_succ < G_succ_old:
+                G_map[succ] = G_succ
+                vis_pred_map[succ] = node
+
+                pq.push(NodeData(F=G_succ + H(succ),\
+                                 G=G_succ,\
                                  nodeid=next(nid_cnt),\
-                                 node=child))
+                                 node=succ))
 
-    parent = end
-    while parent:
-        path.append(parent)
-        parent = child_parent_map.get(parent)
-    path.reverse()
-
-    return visited, path
+    return [], []
 
 
