@@ -1,6 +1,29 @@
 from expand import expand
 
-from collections import deque as DQ
+import heapq
+import itertools
+from collections import deque as DQ, namedtuple as NTup
+
+class PQueue:
+    def __init__(self, data=[]):
+        heapq.heapify(data)
+        self.data = data
+
+    def empty(self):
+        return (self.data == [])
+
+    def push(self, elem):
+        heapq.heappush(self.data, elem)
+
+    def pop(self):
+        return heapq.heappop(self.data)
+
+    def pushpop(self, elem):
+        return heapq.heappushpop(self.data, elem)
+
+    def replace(self, elem):
+        return heapq.heapreplace(self.data, elem)
+
 
 # TO DO: Implement Breadth-first Search.
 def breadth_first_search(time_map, start, end):
@@ -18,51 +41,35 @@ def breadth_first_search(time_map, start, end):
         visited (list): A list of visited nodes in the order in which they were visited
         path (list): The final path found by the search algorithm
     """
+
+
     visited = []
     path = []
 
-    child_parent_map = {}
-    v_set = set()
-    found = False
+    if start == end:
+        return [start], [start]
 
-    child_parent_map[start] = None
-    visited.append(start)
-    v_idx = 0
-    while not found:
-        # no more nodes in fringe
-        if v_idx >= len(visited):
-            break
+    queue = DQ([start])
+    visited_parent_map = {start: None}
 
-        node = visited[v_idx]
-        if node not in time_map:
-            # unknown node name
-            break
-
-        # visit
-        v_set.add(node)
-
+    while queue:
+        node = queue.popleft()
+        ##print(f"BFS node: {node}")
+        visited.append(node)
         if node == end:
-            # reached goal
-            found = True
+            while node is not None:
+                path.append(node)
+                node = visited_parent_map.get(node)
+            path.reverse()
+            return visited, path
 
         for child in expand(node, time_map):
-            if child in v_set or time_map[node][child] is None:
-                continue
-            # add child to fringe and establish mapping to current node
-            visited.append(child)
-            child_parent_map.setdefault(child, node)
+            ##print(f"BFS child: {child}")
+            if child not in visited_parent_map:
+                visited_parent_map[child] = node
+                queue.append(child)
 
-        # advance past current node in fringe
-        v_idx += 1
-
-    if found:
-        parent = end
-        while parent:
-            path.append(parent)
-            parent = child_parent_map.get(parent)
-        path.reverse()
-
-    return visited, path
+    return [], []
 
 # TO DO: Implement Depth-first Search.
 def depth_first_search(time_map, start, end):
@@ -150,7 +157,7 @@ def best_first_search(dis_map, time_map, start, end):
     child_parent_map = {}
 
     node = start
-    while node != end:
+    while node and (node != end):
         v_set.add(node)
         visited.append(node)
         # only a single path is traversed, can directly append
@@ -193,9 +200,55 @@ def a_star_search(dis_map, time_map, start, end):
         visited (list): A list of visited nodes in the order in which they were visited
         path (list): The final path found by the search algorithm
     """
-
     visited = []
     path = []
+
+    v_set = set()
+    child_parent_map = {}
+
+    nid_cnt = itertools.count()
+
+    # val: F(n) of node n
+    # cost: G(n) of node n; tiebreaker
+    # nodeid: increasing; secondary tiebreaker
+    NodeData = NTup("NodeData", ["val", "cost", "nodeid", "node"])
+
+    # heuristic
+    def H(n):
+        return dis_map[n][end]
+
+    pq = PQueue()
+    pq.push(NodeData(val=H(start), cost=0, nodeid=next(nid_cnt), node=start))
+    while not pq.empty():
+        val, cost, _, node = pq.pop()
+        print(f"A* node {node}")
+        visited.append(node)
+        v_set.add(node)
+
+        if node == end:
+            break
+
+        children = expand(node, time_map)
+        if not children:
+            continue
+        #children.reverse()
+
+        for child in children:
+            edge_cost = time_map[node][child] 
+            if (edge_cost and (child not in v_set)):
+                child_cost = cost + edge_cost
+                child_parent_map.setdefault(child, node)
+
+                pq.push(NodeData(val=child_cost + H(child),\
+                                 cost=child_cost,\
+                                 nodeid=next(nid_cnt),\
+                                 node=child))
+
+    parent = end
+    while parent:
+        path.append(parent)
+        parent = child_parent_map.get(parent)
+    path.reverse()
 
     return visited, path
 
