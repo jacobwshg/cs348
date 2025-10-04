@@ -4,6 +4,7 @@ import heapq
 import itertools
 from collections import deque as DQ, namedtuple as NTup
 
+# for GBFS and A*
 class PQueue:
     def __init__(self, data=None):
         self.data = data if data else []
@@ -156,8 +157,8 @@ def best_first_search(dis_map, time_map, start, end):
     visited = []
     path = []
 
-    # store visited status and predecessor at once
-    vis_pred_map = { start: None }
+    v_set = set()
+    pred_map = { start: None }
 
     nid_cnt = itertools.count()
 
@@ -170,11 +171,12 @@ def best_first_search(dis_map, time_map, start, end):
         G, _, node = pq.pop()
         ##print(f"GBFS node: {node}")
         visited.append(node)
+        v_set.add(node)
 
         if node == end:
             while node:
                 path.append(node)
-                node = vis_pred_map.get(node)
+                node = pred_map.get(node)
             path.reverse()
             return visited, path
 
@@ -184,9 +186,8 @@ def best_first_search(dis_map, time_map, start, end):
         succs.reverse()
 
         for succ in succs:
-            old_pred = vis_pred_map.get(succ)
-            if (succ not in vis_pred_map) :
-                vis_pred_map[succ] = node
+            if (succ not in v_set) :
+                pred_map[succ] = node
                 pq.push( NodeData(G=H(succ), nodeid=next(nid_cnt), node=succ) )
     return [], []
 
@@ -242,6 +243,7 @@ def a_star_search(dis_map, time_map, start, end):
 
         G_old = G_map.get(node)
         if (G_old) and G > G_old:
+            # current path to node not optimal
             continue
 
         succs = expand(node, time_map)
@@ -253,6 +255,7 @@ def a_star_search(dis_map, time_map, start, end):
 
             G_succ_old = G_map.get(succ)
             if (not G_succ_old) or G_succ < G_succ_old:
+                # path to successor is new or improved
                 G_map[succ] = G_succ
                 vis_pred_map[succ] = node
 
